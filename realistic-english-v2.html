@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Realistic English v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090f;
+  --bg2: #0d1117;
+  --card: #111827;
+  --card2: #1a2235;
+  --gold: #f0b429;
+  --gold2: #ffd166;
+  --blue: #3b82f6;
+  --green: #10b981;
+  --red: #ef4444;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --border: rgba(240,180,41,0.15);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Cairo',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow:hidden;
+}
+#bg-canvas {
+  position:fixed; inset:0;
+  pointer-events:none; z-index:0; opacity:0.35;
+}
+.screen {
+  position:fixed; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:20px; z-index:10;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.35s ease;
+  overflow-y:auto;
+}
+.screen.active { opacity:1; pointer-events:all; }
+
+/* LOGO */
+.logo { display:flex; flex-direction:column; align-items:center; margin-bottom:24px; }
+.logo-icon {
+  width:68px; height:68px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border-radius:20px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:30px; margin-bottom:10px;
+  box-shadow:0 0 40px rgba(240,180,41,0.3);
+  animation:logoGlow 3s ease-in-out infinite;
+}
+@keyframes logoGlow {
+  0%,100%{box-shadow:0 0 30px rgba(240,180,41,0.3)}
+  50%{box-shadow:0 0 60px rgba(240,180,41,0.6)}
+}
+.logo-title { font-family:'Playfair Display',serif; font-size:26px; font-weight:900; color:var(--gold); letter-spacing:2px; direction:ltr; }
+.logo-sub { font-size:12px; color:var(--muted); margin-top:3px; }
+
+/* CARD */
+.card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px; padding:24px;
+  width:100%; max-width:420px;
+}
+
+/* INPUT */
+.input-group { margin-bottom:18px; }
+.input-group label { display:block; font-size:12px; color:var(--muted); margin-bottom:7px; font-weight:600; }
+.input-group input {
+  width:100%; background:var(--bg2);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px; padding:13px 15px;
+  font-family:'Cairo',sans-serif; font-size:15px;
+  color:var(--text); outline:none; transition:border 0.3s;
+}
+.input-group input:focus { border-color:var(--gold); }
+.input-group input::placeholder { color:var(--muted); }
+
+/* LEVEL GRID */
+.level-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; margin-bottom:22px; }
+.level-btn {
+  background:var(--bg2);
+  border:2px solid rgba(255,255,255,0.06);
+  border-radius:14px; padding:14px 6px;
+  cursor:pointer; transition:all 0.25s; text-align:center; color:var(--muted);
+}
+.level-btn:hover { border-color:var(--gold); transform:translateY(-2px); }
+.level-btn.selected { border-color:var(--gold); background:rgba(240,180,41,0.1); color:var(--gold); }
+.level-btn .le { font-size:20px; display:block; margin-bottom:5px; }
+.level-btn .ln { font-size:12px; font-weight:700; display:block; }
+.level-btn .lx { font-size:10px; color:var(--muted); display:block; margin-top:2px; direction:ltr; }
+
+/* BUTTONS */
+.btn {
+  width:100%; padding:14px; border:none; border-radius:13px;
+  font-family:'Cairo',sans-serif; font-size:15px; font-weight:700;
+  cursor:pointer; transition:all 0.25s;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+}
+.btn-primary { background:linear-gradient(135deg,var(--gold),#e09400); color:#07090f; box-shadow:0 4px 20px rgba(240,180,41,0.25); }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(240,180,41,0.4); }
+.btn-primary:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+.btn-danger { background:rgba(239,68,68,0.13); border:1px solid rgba(239,68,68,0.3); color:var(--red); }
+.btn-danger:hover { background:rgba(239,68,68,0.22); }
+.btn-next { background:rgba(59,130,246,0.13); border:1px solid rgba(59,130,246,0.3); color:var(--blue); }
+.btn-next:hover { background:rgba(59,130,246,0.22); }
+.btn-mute { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:var(--text); }
+.btn-mute.muted { background:rgba(239,68,68,0.13); border-color:rgba(239,68,68,0.3); color:var(--red); }
+
+/* WAITING */
+.waiting-pulse {
+  width:90px; height:90px; border-radius:50%;
+  background:rgba(240,180,41,0.08); border:2px solid var(--gold);
+  display:flex; align-items:center; justify-content:center;
+  font-size:34px; margin:0 auto 20px; position:relative;
+  animation:pulse 2s ease-in-out infinite;
+}
+.waiting-pulse::before,.waiting-pulse::after {
+  content:''; position:absolute; inset:-12px; border-radius:50%;
+  border:1px solid rgba(240,180,41,0.25);
+  animation:ripple 2s ease-out infinite;
+}
+.waiting-pulse::after { animation-delay:1s; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+@keyframes ripple { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+.wdots { display:inline-flex; gap:5px; margin-top:8px; }
+.wdots span { width:7px; height:7px; background:var(--gold); border-radius:50%; animation:db 1.4s ease-in-out infinite; }
+.wdots span:nth-child(2){animation-delay:.2s} .wdots span:nth-child(3){animation-delay:.4s}
+@keyframes db { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
+
+/* LEVEL BADGE */
+.lbadge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 13px;
+  background:rgba(240,180,41,0.1);
+  border:1px solid rgba(240,180,41,0.3);
+  border-radius:100px; font-size:12px; color:var(--gold); font-weight:700;
+  margin:0 auto 18px; text-align:center;
+}
+
+/* STATS */
+.stats-row { display:flex; gap:8px; margin-top:14px; }
+.stat-box { flex:1; background:var(--bg2); border-radius:11px; padding:11px 7px; text-align:center; }
+.stat-box .sn { font-size:19px; font-weight:900; color:var(--gold); }
+.stat-box .sl { font-size:10px; color:var(--muted); margin-top:1px; }
+
+/* SECTION TITLE */
+.stitle { font-size:12px; color:var(--muted); font-weight:600; margin-bottom:9px; padding-right:3px; }
+
+/* ====== CALL SCREEN LAYOUT ====== */
+#screen-call {
+  padding:0;
+  justify-content:flex-start;
+  align-items:stretch;
+  overflow:hidden;
+}
+.call-wrap {
+  display:flex; flex-direction:column;
+  width:100%; height:100vh;
+  max-width:480px; margin:0 auto;
+}
+
+/* Call header */
+.call-top {
+  background:var(--card);
+  border-bottom:1px solid var(--border);
+  padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.call-top-info { display:flex; flex-direction:column; }
+.call-partner-name { font-size:16px; font-weight:700; }
+.call-status-row { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--green); margin-top:2px; }
+.status-dot { width:7px; height:7px; background:var(--green); border-radius:50%; animation:blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.call-top-badge { font-size:12px; color:var(--gold); background:rgba(240,180,41,0.1); border:1px solid rgba(240,180,41,0.25); padding:4px 10px; border-radius:100px; font-weight:700; }
+
+/* Visualizer */
+.viz-row {
+  display:flex; align-items:center; justify-content:center; gap:3px;
+  padding:12px 16px; background:var(--bg2); flex-shrink:0;
+}
+.vbar { width:3px; background:var(--gold); border-radius:3px; min-height:3px; transition:height 0.08s; }
+
+/* Chat area */
+.chat-area {
+  flex:1; overflow-y:auto; padding:14px 14px 0;
+  display:flex; flex-direction:column; gap:10px;
+}
+.chat-area::-webkit-scrollbar { width:4px; }
+.chat-area::-webkit-scrollbar-thumb { background:rgba(240,180,41,0.2); border-radius:4px; }
+
+/* Messages */
+.msg {
+  display:flex; flex-direction:column; max-width:78%;
+  animation:fadeIn 0.25s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.msg.me { align-self:flex-end; align-items:flex-end; }
+.msg.them { align-self:flex-start; align-items:flex-start; }
+.msg-bubble {
+  padding:10px 14px; border-radius:16px; font-size:14px; line-height:1.5; word-break:break-word;
+}
+.msg.me .msg-bubble { background:rgba(240,180,41,0.15); border:1px solid rgba(240,180,41,0.2); color:var(--text); border-bottom-right-radius:4px; }
+.msg.them .msg-bubble { background:var(--card2); border:1px solid rgba(255,255,255,0.07); color:var(--text); border-bottom-left-radius:4px; }
+.msg-meta { font-size:10px; color:var(--muted); margin-top:3px; padding:0 4px; }
+.msg-img { max-width:100%; border-radius:12px; cursor:pointer; display:block; max-height:200px; object-fit:cover; }
+.msg-img-wrap { padding:4px; }
+
+/* Chat input row */
+.chat-input-row {
+  padding:10px 12px;
+  background:var(--card);
+  border-top:1px solid var(--border);
+  display:flex; align-items:flex-end; gap:8px;
+  flex-shrink:0;
+}
+.chat-input-row textarea {
+  flex:1; background:var(--bg2);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px; padding:10px 13px;
+  font-family:'Cairo',sans-serif; font-size:14px;
+  color:var(--text); outline:none; resize:none;
+  min-height:42px; max-height:100px; direction:rtl;
+  transition:border 0.25s;
+  line-height:1.5;
+}
+.chat-input-row textarea:focus { border-color:var(--gold); }
+.chat-input-row textarea::placeholder { color:var(--muted); }
+.icon-btn {
+  width:42px; height:42px; border-radius:12px; border:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; cursor:pointer; transition:all 0.2s; flex-shrink:0;
+}
+.send-btn { background:linear-gradient(135deg,var(--gold),#e09400); color:#07090f; }
+.send-btn:hover { transform:scale(1.08); }
+.img-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:var(--text); }
+.img-btn:hover { background:rgba(255,255,255,0.12); }
+
+/* Controls bar */
+.ctrl-bar {
+  display:flex; gap:8px; padding:10px 12px;
+  background:var(--card); border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.ctrl-btn {
+  flex:1; padding:10px 6px; border:none; border-radius:11px;
+  font-family:'Cairo',sans-serif; font-size:12px; font-weight:700;
+  cursor:pointer; transition:all 0.2s; display:flex;
+  flex-direction:column; align-items:center; gap:3px;
+}
+.ctrl-btn .ci { font-size:18px; }
+.ctrl-mute { background:rgba(255,255,255,0.06); color:var(--text); }
+.ctrl-mute.muted { background:rgba(239,68,68,0.13); color:var(--red); }
+.ctrl-next { background:rgba(59,130,246,0.13); color:var(--blue); }
+.ctrl-end { background:rgba(239,68,68,0.13); color:var(--red); }
+.ctrl-report { background:rgba(255,255,255,0.04); color:var(--muted); }
+
+/* IMAGE PREVIEW MODAL */
+.img-modal {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.93);
+  z-index:200; display:none;
+  align-items:center; justify-content:center;
+  padding:20px;
+}
+.img-modal.open { display:flex; }
+.img-modal img { max-width:100%; max-height:90vh; border-radius:12px; }
+.img-modal-close {
+  position:absolute; top:16px; left:16px;
+  background:rgba(255,255,255,0.1); border:none;
+  color:#fff; font-size:22px; width:40px; height:40px;
+  border-radius:50%; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* REPORT MODAL */
+.modal-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.8); backdrop-filter:blur(4px);
+  z-index:150; display:none; align-items:flex-end; justify-content:center; padding:16px;
+}
+.modal-overlay.open { display:flex; }
+.modal-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:22px 22px 0 0; padding:24px;
+  width:100%; max-width:420px; animation:slideUp 0.3s ease;
+}
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.modal-title { font-size:17px; font-weight:700; margin-bottom:14px; }
+.report-opt {
+  display:flex; align-items:center; gap:11px;
+  padding:13px; border-radius:11px; cursor:pointer;
+  transition:background 0.2s; margin-bottom:7px; font-size:14px; color:var(--text);
+}
+.report-opt:hover { background:rgba(255,255,255,0.05); }
+.modal-cancel {
+  width:100%; padding:13px; background:rgba(255,255,255,0.05);
+  border:none; border-radius:11px; font-family:'Cairo',sans-serif;
+  font-size:14px; color:var(--muted); cursor:pointer; margin-top:6px;
+}
+.modal-cancel:hover { background:rgba(255,255,255,0.09); }
+
+/* TOAST */
+.toast {
+  position:fixed; top:16px; left:50%;
+  transform:translateX(-50%) translateY(-70px);
+  background:var(--card2); border:1px solid var(--border);
+  border-radius:11px; padding:11px 18px;
+  font-size:13px; z-index:300;
+  transition:transform 0.3s ease; white-space:nowrap;
+}
+.toast.show { transform:translateX(-50%) translateY(0); }
+
+/* SYSTEM MSG */
+.sys-msg {
+  text-align:center; font-size:12px; color:var(--muted);
+  padding:4px 0;
+}
+
+audio { display:none; }
+input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<!-- SCREEN 1: WELCOME -->
+<div class="screen active" id="screen-welcome">
+  <div class="logo">
+    <div class="logo-icon">🎙️</div>
+    <div class="logo-title">Realistic English</div>
+    <div class="logo-sub">تحدث مع العالم — طوّر لغتك</div>
+  </div>
+  <div class="card">
+    <div class="input-group">
+      <label>اسمك (اختياري)</label>
+      <input type="text" id="user-name" placeholder="مثال: أحمد" maxlength="20">
+    </div>
+    <div class="stitle">اختر مستواك في الإنجليزية</div>
+    <div class="level-grid">
+      <div class="level-btn" onclick="selectLevel('beginner',this)">
+        <span class="le">🌱</span><span class="ln">مبتدئ</span><span class="lx">Beginner</span>
+      </div>
+      <div class="level-btn" onclick="selectLevel('intermediate',this)">
+        <span class="le">🔥</span><span class="ln">متوسط</span><span class="lx">Intermediate</span>
+      </div>
+      <div class="level-btn" onclick="selectLevel('advanced',this)">
+        <span class="le">⭐</span><span class="ln">متقدم</span><span class="lx">Advanced</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="start-btn" onclick="startSearch()" disabled>🎯 ابدأ التحدث</button>
+    <div class="stats-row">
+      <div class="stat-box"><div class="sn" id="stat-online">—</div><div class="sl">متصل الآن</div></div>
+      <div class="stat-box"><div class="sn" id="stat-calls">—</div><div class="sl">محادثة اليوم</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: WAITING -->
+<div class="screen" id="screen-waiting">
+  <div class="card" style="text-align:center">
+    <div class="waiting-pulse">🎙️</div>
+    <h2 style="font-size:19px;margin-bottom:8px;">جاري البحث عن شريك...</h2>
+    <p style="font-size:13px;color:var(--muted)">نبحث عن شخص بمستوى <span id="wlevel" style="color:var(--gold)"></span></p>
+    <div class="wdots" style="margin:10px auto 18px;display:flex;justify-content:center">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="lbadge" id="wbadge">🌱 مبتدئ</div>
+    <button class="btn btn-danger" onclick="cancelSearch()">✕ إلغاء البحث</button>
+  </div>
+</div>
+
+<!-- SCREEN 3: CALL + CHAT -->
+<div class="screen" id="screen-call">
+  <div class="call-wrap">
+    <!-- Header -->
+    <div class="call-top">
+      <div class="call-top-info">
+        <div class="call-partner-name" id="partner-name">---</div>
+        <div class="call-status-row">
+          <div class="status-dot"></div>
+          <span>متصل — تحدث بالإنجليزية!</span>
+        </div>
+      </div>
+      <div class="call-top-badge" id="call-lbadge">🌱 مبتدئ</div>
+    </div>
+
+    <!-- Visualizer -->
+    <div class="viz-row" id="visualizer"></div>
+
+    <!-- Chat messages -->
+    <div class="chat-area" id="chat-area">
+      <div class="sys-msg">🔒 المحادثة بينك وبين شريكك فقط</div>
+    </div>
+
+    <!-- Chat input -->
+    <div class="chat-input-row">
+      <button class="icon-btn img-btn" onclick="document.getElementById('img-input').click()" title="إرسال صورة">🖼️</button>
+      <textarea id="chat-input" placeholder="اكتب رسالة بالإنجليزي..." rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="icon-btn send-btn" onclick="sendMessage()">➤</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-bar">
+      <button class="ctrl-btn ctrl-mute" id="mute-btn" onclick="toggleMute()">
+        <span class="ci">🎤</span><span>كتم</span>
+      </button>
+      <button class="ctrl-btn ctrl-next" onclick="nextPartner()">
+        <span class="ci">⏭</span><span>التالي</span>
+      </button>
+      <button class="ctrl-btn ctrl-end" onclick="endCall()">
+        <span class="ci">📵</span><span>إنهاء</span>
+      </button>
+      <button class="ctrl-btn ctrl-report" onclick="openReport()">
+        <span class="ci">⚑</span><span>بلاغ</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE PREVIEW MODAL -->
+<div class="img-modal" id="img-modal">
+  <button class="img-modal-close" onclick="document.getElementById('img-modal').classList.remove('open')">✕</button>
+  <img id="img-modal-src" src="" alt="">
+</div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚑ الإبلاغ عن مشكلة</div>
+    <div class="report-opt" onclick="submitReport('harassment')"><span>😡</span> تحرش أو كلام مسيء</div>
+    <div class="report-opt" onclick="submitReport('spam')"><span>📢</span> إزعاج أو سبام</div>
+    <div class="report-opt" onclick="submitReport('inappropriate')"><span>🔞</span> محتوى غير لائق</div>
+    <div class="report-opt" onclick="submitReport('silent')"><span>🔇</span> لا يتحدث / صامت</div>
+    <button class="modal-cancel" onclick="closeReport()">إلغاء</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<audio id="remote-audio" autoplay playsinline></audio>
+<input type="file" id="img-input" accept="image/*" onchange="sendImage(event)">
+
+<!-- Firebase & PeerJS -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+// ====== FIREBASE ======
+firebase.initializeApp({
+  apiKey:"AIzaSyDC317WlQAmBLoUUlTU48cProHWKC2cNtM",
+  authDomain:"realistic-english.firebaseapp.com",
+  projectId:"realistic-english",
+  storageBucket:"realistic-english.firebasestorage.app",
+  messagingSenderId:"14330245339",
+  appId:"1:14330245339:web:8c4543e94178c6993d5cfe",
+  databaseURL:"https://realistic-english-default-rtdb.firebaseio.com"
+});
+const db = firebase.database();
+
+// ====== STATE ======
+let selectedLevel=null, userName='', myPeerId=null;
+let peer=null, voiceCall=null, dataConn=null;
+let localStream=null, isMuted=false;
+let myQueueRef=null, partnerName='مجهول';
+let vizBars=[], vizFrame=null, audioCtx=null, analyser=null;
+let blockedPeers=new Set();
+
+const levelLabels={beginner:'🌱 مبتدئ',intermediate:'🔥 متوسط',advanced:'⭐ متقدم'};
+
+// ====== BACKGROUND ======
+(function(){
+  const c=document.getElementById('bg-canvas'),ctx=c.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  function init(){pts=[];for(let i=0;i<55;i++)pts.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+.5,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,a:Math.random()});}
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+      p.a+=.005;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(240,180,41,${.15+.15*Math.sin(p.a)})`;ctx.fill();
+    });
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<90){ctx.beginPath();ctx.strokeStyle=`rgba(240,180,41,${.07*(1-d/90)})`;ctx.lineWidth=.5;ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke();}
+    }
+    requestAnimationFrame(draw);
+  }
+  resize();init();draw();
+  window.addEventListener('resize',()=>{resize();init();});
+})();
+
+// ====== STATS ======
+function updateStats(){
+  const pr=db.ref('presence').push({t:Date.now()});
+  pr.onDisconnect().remove();
+  db.ref('presence').on('value',s=>document.getElementById('stat-online').textContent=s.numChildren());
+  db.ref('stats/calls_today').on('value',s=>document.getElementById('stat-calls').textContent=s.val()||0);
+}
+
+// ====== LEVEL SELECT ======
+function selectLevel(lv,el){
+  document.querySelectorAll('.level-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected'); selectedLevel=lv;
+  document.getElementById('start-btn').disabled=false;
+}
+
+// ====== SCREEN ======
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+
+// ====== TOAST ======
+function showToast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+
+// ====== VISUALIZER ======
+function buildViz(){
+  const v=document.getElementById('visualizer');v.innerHTML='';vizBars=[];
+  for(let i=0;i<22;i++){const b=document.createElement('div');b.className='vbar';b.style.height='3px';v.appendChild(b);vizBars.push(b);}
+}
+function animViz(){
+  if(analyser){
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const step=Math.floor(data.length/vizBars.length);
+    vizBars.forEach((b,i)=>{const v=data[i*step]||0;b.style.height=(3+(v/255)*48)+'px';b.style.opacity=.3+(v/255)*.7;});
+  } else {
+    vizBars.forEach(b=>{b.style.height=(3+Math.random()*15)+'px';});
+  }
+  vizFrame=requestAnimationFrame(animViz);
+}
+
+// ====== START SEARCH ======
+async function startSearch(){
+  userName=document.getElementById('user-name').value.trim()||'مجهول';
+  try{localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});}
+  catch(e){showToast('❌ تأكد من السماح للميكروفون!',3000);return;}
+
+  showScreen('screen-waiting');
+  document.getElementById('wlevel').textContent=selectedLevel==='beginner'?'مبتدئ':selectedLevel==='intermediate'?'متوسط':'متقدم';
+  document.getElementById('wbadge').textContent=levelLabels[selectedLevel];
+
+  peer=new Peer(undefined,{host:'0.peerjs.com',port:443,secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}});
+
+  peer.on('open',id=>{myPeerId=id;joinQueue();});
+  peer.on('error',err=>{console.error(err);showToast('⚠️ خطأ في الاتصال',3000);cancelSearch();});
+
+  // Incoming voice call
+  peer.on('call',call=>{
+    if(blockedPeers.has(call.peer)){call.close();return;}
+    voiceCall=call; call.answer(localStream);
+    call.on('stream',rs=>{setupAudio(rs);db.ref(`calls/${call.peer}/name`).once('value',s=>{partnerName=s.val()||'مجهول';startCallUI();});});
+    call.on('close',()=>handleDisconnect());
+    call.on('error',()=>handleDisconnect());
+  });
+
+  // Incoming data connection (chat)
+  peer.on('connection',conn=>{
+    if(blockedPeers.has(conn.peer)){conn.close();return;}
+    dataConn=conn;
+    conn.on('data',d=>receiveData(d));
+    conn.on('close',()=>{});
+  });
+}
+
+// ====== JOIN QUEUE ======
+function joinQueue(){
+  const qPath=`queue/${selectedLevel}`;
+  db.ref(`calls/${myPeerId}`).set({name:userName,level:selectedLevel,t:Date.now()});
+  db.ref(`calls/${myPeerId}`).onDisconnect().remove();
+
+  db.ref(qPath).orderByChild('t').limitToFirst(10).once('value',snap=>{
+    let matched=false;
+    snap.forEach(child=>{
+      if(matched)return;
+      const d=child.val();
+      if(d.peerId===myPeerId||blockedPeers.has(d.peerId))return;
+      matched=true; partnerName=d.name||'مجهول';
+      child.ref.remove();
+
+      // Voice call
+      const vc=peer.call(d.peerId,localStream);
+      voiceCall=vc;
+      vc.on('stream',rs=>{setupAudio(rs);startCallUI();});
+      vc.on('close',()=>handleDisconnect());
+      vc.on('error',()=>handleDisconnect());
+
+      // Data connection for chat
+      setTimeout(()=>{
+        dataConn=peer.connect(d.peerId,{reliable:true});
+        dataConn.on('open',()=>{});
+        dataConn.on('data',d=>receiveData(d));
+      },800);
+
+      db.ref('stats/calls_today').transaction(v=>(v||0)+1);
+    });
+
+    if(!matched){
+      myQueueRef=db.ref(qPath).push({peerId:myPeerId,name:userName,t:Date.now()});
+      myQueueRef.onDisconnect().remove();
+    }
+  });
+}
+
+// ====== SETUP AUDIO ======
+function setupAudio(stream){
+  document.getElementById('remote-audio').srcObject=stream;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(stream);
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=256;
+    src.connect(analyser);
+  }catch(e){analyser=null;}
+}
+
+// ====== START CALL UI ======
+function startCallUI(){
+  showScreen('screen-call');
+  document.getElementById('partner-name').textContent=partnerName;
+  document.getElementById('call-lbadge').textContent=levelLabels[selectedLevel];
+  document.getElementById('chat-area').innerHTML='<div class="sys-msg">🔒 المحادثة بينك وبين شريكك فقط</div>';
+  buildViz(); animViz();
+}
+
+// ====== CHAT ======
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+function sendMessage(){
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim(); if(!text)return;
+  if(!dataConn||!dataConn.open){showToast('⚠️ الاتصال غير مستقر');return;}
+  dataConn.send({type:'text',text,name:userName});
+  appendMsg('me','text',text);
+  inp.value=''; inp.style.height='auto';
+}
+
+function sendImage(e){
+  const file=e.target.files[0]; if(!file)return;
+  if(file.size>3*1024*1024){showToast('❌ الصورة أكبر من 3MB');return;}
+  if(!dataConn||!dataConn.open){showToast('⚠️ الاتصال غير مستقر');return;}
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const b64=ev.target.result;
+    dataConn.send({type:'image',data:b64,name:userName});
+    appendMsg('me','image',b64);
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+}
+
+function receiveData(d){
+  if(d.type==='text') appendMsg('them','text',d.text,d.name);
+  else if(d.type==='image') appendMsg('them','image',d.data,d.name);
+}
+
+function appendMsg(who,type,content,name){
+  const area=document.getElementById('chat-area');
+  const now=new Date();
+  const timeStr=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+  const div=document.createElement('div');
+  div.className=`msg ${who}`;
+
+  if(type==='text'){
+    div.innerHTML=`<div class="msg-bubble">${escHtml(content)}</div><div class="msg-meta">${who==='them'?(name||partnerName)+' · ':'' }${timeStr}</div>`;
+  } else {
+    div.innerHTML=`<div class="msg-bubble msg-img-wrap"><img class="msg-img" src="${content}" onclick="openImgModal(this.src)"></div><div class="msg-meta">${who==='them'?(name||partnerName)+' · ':''}${timeStr}</div>`;
+  }
+  area.appendChild(div);
+  area.scrollTop=area.scrollHeight;
+}
+
+function escHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+
+function openImgModal(src){
+  document.getElementById('img-modal-src').src=src;
+  document.getElementById('img-modal').classList.add('open');
+}
+
+// ====== CONTROLS ======
+function toggleMute(){
+  isMuted=!isMuted;
+  if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted);
+  const btn=document.getElementById('mute-btn');
+  btn.innerHTML=isMuted?'<span class="ci">🔇</span><span>إلغاء الكتم</span>':'<span class="ci">🎤</span><span>كتم</span>';
+  btn.classList.toggle('muted',isMuted);
+  showToast(isMuted?'🔇 الميكروفون مكتوم':'🎤 الميكروفون مفعّل');
+}
+
+function cancelSearch(){
+  if(myQueueRef){myQueueRef.remove();myQueueRef=null;}
+  if(peer){peer.destroy();peer=null;}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  showScreen('screen-welcome');
+}
+
+function endCall(){cleanupCall();showScreen('screen-welcome');showToast('📵 انتهت المكالمة');}
+
+function nextPartner(){
+  cleanupCall(false);
+  showScreen('screen-waiting');
+  document.getElementById('wlevel').textContent=selectedLevel==='beginner'?'مبتدئ':selectedLevel==='intermediate'?'متوسط':'متقدم';
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    localStream=stream;
+    peer=new Peer(undefined,{host:'0.peerjs.com',port:443,secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+    peer.on('open',id=>{myPeerId=id;joinQueue();});
+    peer.on('call',call=>{
+      if(blockedPeers.has(call.peer)){call.close();return;}
+      voiceCall=call;call.answer(localStream);
+      call.on('stream',rs=>{setupAudio(rs);db.ref(`calls/${call.peer}/name`).once('value',s=>{partnerName=s.val()||'مجهول';startCallUI();});});
+      call.on('close',()=>handleDisconnect());
+    });
+    peer.on('connection',conn=>{dataConn=conn;conn.on('data',d=>receiveData(d));});
+    peer.on('error',()=>{showToast('⚠️ خطأ');cancelSearch();});
+  }).catch(()=>{showToast('❌ خطأ في الميكروفون');showScreen('screen-welcome');});
+}
+
+function handleDisconnect(){
+  if(document.getElementById('screen-call').classList.contains('active')){
+    appendMsg('them','text','[قطع الاتصال]');
+    showToast('📵 قطع الشخص الآخر المكالمة');
+    setTimeout(()=>nextPartner(),2000);
+  }
+}
+
+function cleanupCall(stopStream=true){
+  if(vizFrame){cancelAnimationFrame(vizFrame);vizFrame=null;}
+  if(voiceCall){voiceCall.close();voiceCall=null;}
+  if(dataConn){dataConn.close();dataConn=null;}
+  if(audioCtx){audioCtx.close();audioCtx=null;analyser=null;}
+  if(stopStream&&localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  if(stopStream&&peer){peer.destroy();peer=null;}
+  document.getElementById('remote-audio').srcObject=null;
+  isMuted=false;
+  document.getElementById('mute-btn').innerHTML='<span class="ci">🎤</span><span>كتم</span>';
+  document.getElementById('mute-btn').classList.remove('muted');
+}
+
+function openReport(){document.getElementById('report-modal').classList.add('open');}
+function closeReport(){document.getElementById('report-modal').classList.remove('open');}
+function submitReport(reason){
+  db.ref('reports').push({reporter:myPeerId||'unknown',reason,t:Date.now()});
+  if(voiceCall)blockedPeers.add(voiceCall.peer);
+  closeReport(); showToast('✅ تم إرسال البلاغ!');
+  nextPartner();
+}
+
+updateStats();
+</script>
+</body>
+</html>
